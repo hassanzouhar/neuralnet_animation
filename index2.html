@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Network Animation with Floating Title</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle, #1a1a1a, #000);
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="neuralNetCanvas"></canvas>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        function createNeuralNetAnimation() {
+            const canvas = document.getElementById('neuralNetCanvas');
+            const ctx = canvas.getContext('2d');
+            const nodes = [];
+            const nodeCount = 100;
+            const maxDistance = 150;
+            const friction = 0.9;
+            const pulseSpeed = 0.1;
+            let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                mouse.x = canvas.width / 2;
+                mouse.y = canvas.height / 2;
+                createNodes(); // Recreate nodes to fit the new canvas size
+            }
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            canvas.addEventListener('mousemove', event => {
+                const rect = canvas.getBoundingClientRect();
+                mouse.x = event.clientX - rect.left;
+                mouse.y = event.clientY - rect.top;
+            });
+
+            function createNodes() {
+                nodes.length = 0; // Clear the existing nodes
+                for (let i = 0; i < nodeCount; i++) {
+                    nodes.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        baseRadius: Math.random() * 3 + 2,
+                        radius: Math.random() * 3 + 2,
+                        speedX: (Math.random() - 0.5) * 2,
+                        speedY: (Math.random() - 0.5) * 2,
+                        pulseOffset: Math.random() * 2 * Math.PI
+                    });
+                }
+            }
+
+            function updateNodes() {
+                nodes.forEach(node => {
+                    const dx = node.x - mouse.x;
+                    const dy = node.y - mouse.y;
+                    const distance = Math.hypot(dx, dy);
+                    const maxMouseEffectDistance = 150;
+
+                    if (distance < maxMouseEffectDistance) {
+                        const angle = Math.atan2(dy, dx);
+                        const force = (maxMouseEffectDistance - distance) / maxMouseEffectDistance;
+                        node.speedX += Math.cos(angle) * force;
+                        node.speedY += Math.sin(angle) * force;
+                    }
+
+                    node.speedX *= friction;
+                    node.speedY *= friction;
+
+                    node.x += node.speedX;
+                    node.y += node.speedY;
+
+                    node.radius = node.baseRadius + Math.sin(node.pulseOffset) * pulseSpeed;
+                    node.pulseOffset += 0.1;
+
+                    if (node.x < 0 || node.x > canvas.width) node.speedX *= -1;
+                    if (node.y < 0 || node.y > canvas.height) node.speedY *= -1;
+                });
+            }
+
+            function drawNodes() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                nodes.forEach(node => {
+                    ctx.beginPath();
+                    const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.radius);
+                    gradient.addColorStop(0, '#0ff');
+                    gradient.addColorStop(1, '#00f');
+                    ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                });
+            }
+
+            function connectNodes() {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#fff';
+                for (let i = 0; i < nodes.length; i++) {
+                    for (let j = i + 1; j < nodes.length; j++) {
+                        const distance = Math.hypot(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y);
+                        if (distance < maxDistance) {
+                            ctx.beginPath();
+                            ctx.moveTo(nodes[i].x, nodes[i].y);
+                            ctx.lineTo(nodes[j].x, nodes[j].y);
+                            ctx.strokeStyle = `rgba(255, 255, 255, ${1 - distance / maxDistance})`;
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
+                    }
+                }
+                ctx.shadowBlur = 0;
+            }
+
+            function animate() {
+                updateNodes();
+                drawNodes();
+                connectNodes();
+                requestAnimationFrame(animate);
+            }
+
+            createNodes();
+            animate();
+        }
+
+        createNeuralNetAnimation();
+
+        // WebGL Floating Title Code
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const fontLoader = new THREE.FontLoader();
+        fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function(font) {
+            const geometry = new THREE.TextGeometry('Floating Title', {
+                font: font,
+                size: 2,
+                height: 0.5,
+                curveSegments: 12,
+            });
+
+            const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const textMesh = new THREE.Mesh(geometry, material);
+            textMesh.position.set(-5, 0, -10); // Center the text
+            scene.add(textMesh);
+
+            camera.position.z = 5;
+
+            function animateTitle() {
+                requestAnimationFrame(animateTitle);
+                textMesh.rotation.x += 0.0001;
+                textMesh.rotation.y += 0.0;
+                renderer.render(scene, camera);
+            }
+            animateTitle();
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Network Animation</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle, #1a1a1a, #000);
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .controls button, .controls select {
+            margin: 5px;
+            padding: 5px 10px;
+            background: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <select id="agentTypeSelector">
+            <option value="creativity">Creativity</option>
+            <option value="ethical">Ethical</option>
+            <option value="linguistic">Linguistic</option>
+        </select>
+        <button id="rewardButton">Reward</button>
+        <button id="punishButton">Punish</button>
+    </div>
+    <canvas id="neuralNetCanvas"></canvas>
+    <script>
+        function createNeuralNetAnimation() {
+            const canvas = document.getElementById('neuralNetCanvas');
+            const ctx = canvas.getContext('2d');
+            const neurons = [];
+            const mentalAnchors = [];
+            const chaosAgents = [];
+            const permanentNodes = [];
+            const initialNeuronCount = 100;
+            const chaosAgentLifespan = 10000; // 10 seconds
+            const maxDistance = 150;
+            const friction = 0.9;
+            const pulseSpeed = 0.2;
+            const expansionFactor = 1.5;
+            const trailLength = 20;
+            const attractionStrength = 0.02;
+            const repulsionStrength = 0.1;
+            const repellentStrength = 0.15; // Increased repellent strength
+            const creativityStrength = 0.7;
+            const ethicalStrength = 0.5;
+            const linguisticStrength = 0.6;
+            const minDistanceToAnchor = 50;
+            const neuronCreationRate = 5000; // 5 seconds
+            const neuronDeletionRate = 10000; // 10 seconds
+            const neuronsPerDeletion = 1;
+            const maxConnectionsPerNeuron = 5;
+            const minDistanceBetweenNeurons = 20;
+            const maxNeurons = 200;
+            const learningRate = 0.01;
+            const survivalCyclesThreshold = 5; // Threshold for permanent node
+            let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+            let rewardMode = false;
+            let punishMode = false;
+            let reductionCycleCount = 0;
+            let scale = 1;
+            let panX = 0, panY = 0;
+            let isDragging = false;
+            let startX, startY;
+            const colors = {
+                creativity: '#ff6b6b',
+                ethical: '#32cd32',
+                linguistic: '#8a2be2'
+            };
+
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            canvas.addEventListener('mousemove', event => {
+                const rect = canvas.getBoundingClientRect();
+                mouse.x = event.clientX - rect.left;
+                mouse.y = event.clientY - rect.top;
+            });
+
+            canvas.addEventListener('mousedown', event => {
+                isDragging = true;
+                startX = event.clientX - panX;
+                startY = event.clientY - panY;
+            });
+
+            canvas.addEventListener('mousemove', event => {
+                if (isDragging) {
+                    panX = event.clientX - startX;
+                    panY = event.clientY - startY;
+                    ctx.setTransform(scale, 0, 0, scale, panX, panY);
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => isDragging = false);
+            canvas.addEventListener('mouseout', () => isDragging = false);
+
+            canvas.addEventListener('wheel', event => {
+                scale += event.deltaY * -0.01;
+                scale = Math.min(Math.max(.125, scale), 4);
+                ctx.setTransform(scale, 0, 0, scale, panX, panY);
+            });
+
+            canvas.addEventListener('click', event => {
+                const rect = canvas.getBoundingClientRect();
+                const agentType = document.getElementById('agentTypeSelector').value;
+                chaosAgents.push({
+                    x: event.clientX - rect.left,
+                    y: event.clientY - rect.top,
+                    radius: Math.random() * 10 + 5,
+                    speedX: (Math.random() - 0.5) * 2,
+                    speedY: (Math.random() - 0.5) * 2,
+                    strength: agentType === 'creativity' ? creativityStrength : agentType === 'ethical' ? ethicalStrength : linguisticStrength,
+                    type: agentType,
+                    color: colors[agentType],
+                    lifespan: chaosAgentLifespan
+                });
+            });
+
+            document.getElementById('rewardButton').addEventListener('click', () => {
+                rewardMode = true;
+                punishMode = false;
+            });
+
+            document.getElementById('punishButton').addEventListener('click', () => {
+                rewardMode = false;
+                punishMode = true;
+            });
+
+            function createNeuron(x, y) {
+                return {
+                    x: x !== undefined ? x : Math.random() * canvas.width,
+                    y: y !== undefined ? y : Math.random() * canvas.height,
+                    baseRadius: Math.random() * 3 + 2,
+                    radius: Math.random() * 3 + 2,
+                    speedX: (Math.random() - 0.5) * 2,
+                    speedY: (Math.random() - 0.5) * 2,
+                    pulseOffset: Math.random() * 2 * Math.PI,
+                    influenced: false,
+                    connections: 0,
+                    trail: [],
+                    age: 0,
+                    energy: 1,
+                    lifespan: 10000, // Initial lifespan
+                    survivalCycles: 0,
+                    isPermanent: false,
+                    connectionStrengths: {}
+                };
+            }
+
+            function createNeurons(count, x, y) {
+                for (let i = 0; i < count; i++) {
+                    neurons.push(createNeuron(x, y));
+                }
+            }
+
+            function createMentalAnchors() {
+                const brainShape = [
+                    { x: 0.2, y: 0.3 }, { x: 0.8, y: 0.3 }, // top-left, top-right
+                    { x: 0.2, y: 0.7 }, { x: 0.8, y: 0.7 }, // bottom-left, bottom-right
+                    { x: 0.5, y: 0.1 }, { x: 0.5, y: 0.9 }, // center-top, center-bottom
+                    { x: 0.35, y: 0.5 }, { x: 0.65, y: 0.5 }, // mid-left, mid-right
+                    { x: 0.4, y: 0.25 }, { x: 0.6, y: 0.25 } // inner-top-left, inner-top-right
+                ];
+                brainShape.forEach(pos => {
+                    mentalAnchors.push({
+                        x: pos.x * canvas.width,
+                        y: pos.y * canvas.height
+                    });
+                });
+            }
+
+            function identifyClusters() {
+                const clusters = [];
+                const visited = new Set();
+
+                neurons.forEach((neuron, i) => {
+                    if (!visited.has(i)) {
+                        const cluster = [];
+                        const stack = [i];
+                        visited.add(i);
+
+                        while (stack.length > 0) {
+                            const currentIndex = stack.pop();
+                            const currentNeuron = neurons[currentIndex];
+                            cluster.push(currentNeuron);
+
+                            neurons.forEach((otherNeuron, j) => {
+                                if (!visited.has(j) && Math.hypot(currentNeuron.x - otherNeuron.x, currentNeuron.y - otherNeuron.y) < maxDistance) {
+                                    stack.push(j);
+                                    visited.add(j);
+                                }
+                            });
+                        }
+                        clusters.push(cluster);
+                    }
+                });
+
+                return clusters;
+            }
+
+            function updateNeurons() {
+                neurons.forEach((neuron, i) => {
+                    neuron.influenced = false;
+
+                    // Calculate distance from mouse
+                    const dx = neuron.x - mouse.x;
+                    const dy = neuron.y - mouse.y;
+                    const distance = Math.hypot(dx, dy);
+                    const maxMouseEffectDistance = 150;
+
+                    // Move neuron away from mouse and expand radius
+                    if (distance < maxMouseEffectDistance) {
+                        const angle = Math.atan2(dy, dx);
+                        const force = (maxMouseEffectDistance - distance) / maxMouseEffectDistance;
+                        neuron.speedX += Math.cos(angle) * force * 1.5;
+                        neuron.speedY += Math.sin(angle) * force * 1.5;
+                        neuron.radius = neuron.baseRadius * (1 + force * expansionFactor);
+                    } else {
+                        neuron.radius = neuron.baseRadius + Math.sin(neuron.pulseOffset) * pulseSpeed;
+                    }
+
+                    // Apply attractive force towards the nearest mental anchor
+                    let nearestAnchor = null;
+                    let nearestDistance = Infinity;
+                    mentalAnchors.forEach(anchor => {
+                        const dx = neuron.x - anchor.x;
+                        const dy = neuron.y - anchor.y;
+                        const distance = Math.hypot(dx, dy);
+                        if (distance < nearestDistance) {
+                            nearestDistance = distance;
+                            nearestAnchor = anchor;
+                        }
+                    });
+
+                    if (nearestAnchor) {
+                        const anchorDx = nearestAnchor.x - neuron.x;
+                        const anchorDy = nearestAnchor.y - neuron.y;
+                        const angle = Math.atan2(anchorDy, anchorDx);
+                        if (nearestDistance > minDistanceToAnchor) {
+                            neuron.speedX += Math.cos(angle) * attractionStrength;
+                            neuron.speedY += Math.sin(angle) * attractionStrength;
+                        } else {
+                            neuron.speedX -= Math.cos(angle) * repulsionStrength;
+                            neuron.speedY -= Math.sin(angle) * repulsionStrength;
+                        }
+                    }
+
+                    // Apply chaos agent influence
+                    chaosAgents.forEach(agent => {
+                        const agentDx = agent.x - neuron.x;
+                        const agentDy = agent.y - neuron.y;
+                        const agentDistance = Math.hypot(agentDx, agentDy);
+                        if (agentDistance < agent.radius * 10) {
+                            const angle = Math.atan2(agentDy, agentDx);
+                            neuron.speedX += Math.cos(angle) * agent.strength;
+                            neuron.speedY += Math.sin(angle) * agent.strength;
+                            neuron.influenced = true;
+
+                            // Different behavior based on the type of chaos agent
+                            if (agent.type === 'creativity') {
+                                neuron.radius += Math.random() * 2; // Increase size
+                                neuron.speedX += (Math.random() - 0.5) * 0.5; // Increase randomness in speed
+                                neuron.speedY += (Math.random() - 0.5) * 0.5;
+                            } else if (agent.type === 'ethical') {
+                                neuron.speedX *= 1.1; // Increase speed
+                                neuron.speedY *= 1.1;
+                            } else if (agent.type === 'linguistic') {
+                                neuron.radius += Math.random(); // Moderate size increase
+                                neuron.speedX += (Math.random() - 0.5) * 0.2; // Slightly increase randomness
+                                neuron.speedY += (Math.random() - 0.5) * 0.2;
+                            }
+                        }
+                    });
+
+                    // Apply repellent force to other neurons
+                    neurons.forEach((otherNeuron, j) => {
+                        if (i !== j) {
+                            const dx = neuron.x - otherNeuron.x;
+                            const dy = neuron.y - otherNeuron.y;
+                            const distance = Math.hypot(dx, dy);
+                            if (distance < minDistanceBetweenNeurons) {
+                                const angle = Math.atan2(dy, dx);
+                                const force = (minDistanceBetweenNeurons - distance) / minDistanceBetweenNeurons;
+                                neuron.speedX += Math.cos(angle) * force * repellentStrength;
+                                neuron.speedY += Math.sin(angle) * force * repellentStrength;
+                                otherNeuron.speedX -= Math.cos(angle) * force * repellentStrength;
+                                otherNeuron.speedY -= Math.sin(angle) * force * repellentStrength;
+                            }
+                        }
+                    });
+
+                    // Apply friction
+                    neuron.speedX *= friction;
+                    neuron.speedY *= friction;
+
+                    // Update position
+                    neuron.x += neuron.speedX;
+                    neuron.y += neuron.speedY;
+
+                    // Keep neurons within canvas bounds
+                    if (neuron.x < 0 || neuron.x > canvas.width) neuron.speedX *= -1;
+                    if (neuron.y < 0 || neuron.y > canvas.height) neuron.speedY *= -1;
+
+                    // Update trail
+                    neuron.trail.push({ x: neuron.x, y: neuron.y });
+                    if (neuron.trail.length > trailLength) neuron.trail.shift();
+
+                    // Pulsate neuron
+                    neuron.pulseOffset += 0.1;
+
+                    // Age neuron and reduce energy
+                    neuron.age++;
+                    neuron.energy -= 0.001;
+
+                    // Reward or punish neuron based on mode
+                    if (rewardMode) {
+                        neuron.energy += learningRate;
+                        neuron.lifespan += 500; // Increase lifespan on reward
+                    } else if (punishMode) {
+                        neuron.energy -= learningRate;
+                        neuron.lifespan -= 500; // Decrease lifespan on punish
+                    }
+
+                    // Strengthen connections based on activity
+                    if (neuron.influenced) {
+                        neuron.connections++;
+                        neuron.connectionStrengths[neuron.connections] = (neuron.connectionStrengths[neuron.connections] || 0) + 1;
+                    }
+
+                    // Convert to permanent node if survival cycles threshold is reached
+                    if (neuron.survivalCycles >= survivalCyclesThreshold && !neuron.isPermanent) {
+                        neuron.isPermanent = true;
+                        permanentNodes.push(neuron);
+                    }
+
+                    // Increment survival cycles if neuron survives
+                    if (neuron.energy > 0) {
+                        neuron.survivalCycles++;
+                    }
+
+                    // Remove neuron if energy is depleted or lifespan is over, unless it's a permanent node
+                    if ((neuron.energy <= 0 || neuron.age >= neuron.lifespan) && !neuron.isPermanent) {
+                        neurons.splice(i, 1);
+                    }
+                });
+
+                // Reset reward and punish modes after each update
+                rewardMode = false;
+                punishMode = false;
+            }
+
+            function updateChaosAgents() {
+                chaosAgents.forEach((agent, index) => {
+                    // Calculate distance from mouse
+                    const dx = agent.x - mouse.x;
+                    const dy = agent.y - mouse.y;
+                    const distance = Math.hypot(dx, dy);
+                    const maxMouseEffectDistance = 150;
+
+                    // Move chaos agent away from mouse
+                    if (distance < maxMouseEffectDistance) {
+                        const angle = Math.atan2(dy, dx);
+                        const force = (maxMouseEffectDistance - distance) / maxMouseEffectDistance;
+                        agent.speedX += Math.cos(angle) * force * 1.5;
+                        agent.speedY += Math.sin(angle) * force * 1.5;
+                    }
+
+                    // Update position
+                    agent.x += agent.speedX;
+                    agent.y += agent.speedY;
+
+                    // Apply friction
+                    agent.speedX *= friction;
+                    agent.speedY *= friction;
+
+                    // Reduce lifespan
+                    agent.lifespan -= 1000 / 60; // Assuming 60 FPS
+
+                    // Remove if lifespan is over
+                    if (agent.lifespan <= 0) {
+                        chaosAgents.splice(index, 1);
+                    }
+
+                    // Keep chaos agents within canvas bounds
+                    if (agent.x < 0 || agent.x > canvas.width) agent.speedX *= -1;
+                    if (agent.y < 0 || agent.y > canvas.height) agent.speedY *= -1;
+                });
+            }
+
+            function drawNeurons() {
+                neurons.forEach(neuron => {
+                    // Draw trail
+                    ctx.beginPath();
+                    ctx.moveTo(neuron.trail[0].x, neuron.trail[0].y);
+                    for (let i = 1; i < neuron.trail.length; i++) {
+                        ctx.lineTo(neuron.trail[i].x, neuron.trail[i].y);
+                    }
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    // Draw neuron
+                    ctx.beginPath();
+                    const gradient = ctx.createRadialGradient(neuron.x, neuron.y, 0, neuron.x, neuron.y, neuron.radius);
+                    gradient.addColorStop(0, '#ff6b6b');
+                    gradient.addColorStop(0.5, '#ffdd59');
+                    gradient.addColorStop(1, '#1e90ff');
+                    ctx.arc(neuron.x, neuron.y, neuron.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = gradient;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = gradient;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+
+                    // Highlight permanent neurons
+                    if (neuron.isPermanent) {
+                        ctx.strokeStyle = '#00FF00';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            function connectNeurons() {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#fff';
+                neurons.forEach(neuron => neuron.connections = 0); // Reset connections count
+
+                for (let i = 0; i < neurons.length; i++) {
+                    for (let j = i + 1; j < neurons.length; j++) {
+                        const distance = Math.hypot(neurons[i].x - neurons[j].x, neurons[i].y - neurons[j].y);
+                        if (distance < maxDistance && neurons[i].connections < maxConnectionsPerNeuron && neurons[j].connections < maxConnectionsPerNeuron) {
+                            neurons[i].connections++;
+                            neurons[j].connections++;
+                            ctx.beginPath();
+                            ctx.moveTo(neurons[i].x, neurons[i].y);
+                            ctx.lineTo(neurons[j].x, neurons[j].y);
+                            ctx.strokeStyle = `rgba(255, 255, 255, ${1 - distance / maxDistance})`;
+
+                            // Ensuring line width is within a reasonable range
+                            let lineWidth = Math.min(Math.max(neurons[i].connectionStrengths[neurons[i].connections] || 1, 1), 5);
+                            ctx.lineWidth = lineWidth;
+                            ctx.stroke();
+                            
+                            // Reset line width after drawing
+                            ctx.lineWidth = 1;
+                        }
+                    }
+                }
+                ctx.shadowBlur = 0;
+            }
+
+            function drawChaosAgents() {
+                chaosAgents.forEach(agent => {
+                    ctx.beginPath();
+                    ctx.arc(agent.x, agent.y, agent.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = agent.color;
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = agent.color;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                });
+            }
+
+            function animateBackground() {
+                const gradient = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width / 2);
+                gradient.addColorStop(0, '#1a1a1a');
+                gradient.addColorStop(1, '#000');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            function animate() {
+                // Clear and reset the transformation matrix
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                animateBackground();
+                updateNeurons();
+                updateChaosAgents();
+                drawNeurons();
+                drawChaosAgents();
+                connectNeurons();
+                requestAnimationFrame(animate);
+            }
+
+            function addNeuronsPeriodically() {
+                setInterval(() => {
+                    if (neurons.length < maxNeurons) {
+                        const clusters = identifyClusters();
+                        clusters.forEach(cluster => {
+                            const newNodesCount = Math.min(cluster.length - 1, maxNeurons - neurons.length);
+                            if (newNodesCount > 0) {
+                                const avgX = cluster.reduce((sum, n) => sum + n.x, 0) / cluster.length;
+                                const avgY = cluster.reduce((sum, n) => sum + n.y, 0) / cluster.length;
+                                createNeurons(newNodesCount, avgX, avgY);
+                            }
+                        });
+                    }
+                }, neuronCreationRate);
+            }
+
+            function deleteNeuronsPeriodically() {
+                setInterval(() => {
+                    for (let i = 0; i < neuronsPerDeletion; i++) {
+                        if (neurons.length > 0) {
+                            neurons.pop();
+                        }
+                    }
+                    reductionCycleCount++;
+                }, neuronDeletionRate);
+            }
+
+            createNeurons(initialNeuronCount);
+            createMentalAnchors();
+            animate();
+            addNeuronsPeriodically();
+            deleteNeuronsPeriodically();
+        }
+
+        createNeuralNetAnimation();
+    </script>
+</body>
+</html>
