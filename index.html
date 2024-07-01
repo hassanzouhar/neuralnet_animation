@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Network Animation</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle, #1a1a1a, #000);
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="neuralNetCanvas"></canvas>
+    <script>
+        function createNeuralNetAnimation() {
+            const canvas = document.getElementById('neuralNetCanvas');
+            const ctx = canvas.getContext('2d');
+            const nodes = [];
+            const nodeCount = 100;
+            const maxDistance = 150;
+            const friction = 0.98;
+            const pulseSpeed = 0.05;
+            let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            canvas.addEventListener('mousemove', event => {
+                const rect = canvas.getBoundingClientRect();
+                mouse.x = event.clientX - rect.left;
+                mouse.y = event.clientY - rect.top;
+            });
+
+            function createNodes() {
+                for (let i = 0; i < nodeCount; i++) {
+                    nodes.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        baseRadius: Math.random() * 3 + 2,
+                        radius: Math.random() * 3 + 2,
+                        speedX: (Math.random() - 0.5) * 0.5,
+                        speedY: (Math.random() - 0.5) * 0.5,
+                        pulseOffset: Math.random() * 2 * Math.PI
+                    });
+                }
+            }
+
+            function updateNodes() {
+                nodes.forEach(node => {
+                    // Calculate distance from mouse
+                    const dx = node.x - mouse.x;
+                    const dy = node.y - mouse.y;
+                    const distance = Math.hypot(dx, dy);
+                    const maxMouseEffectDistance = 100;
+
+                    // Move node away from mouse
+                    if (distance < maxMouseEffectDistance) {
+                        const angle = Math.atan2(dy, dx);
+                        const force = (maxMouseEffectDistance - distance) / maxMouseEffectDistance;
+                        node.speedX += Math.cos(angle) * force * 0.1;
+                        node.speedY += Math.sin(angle) * force * 0.1;
+                    }
+
+                    // Apply friction
+                    node.speedX *= friction;
+                    node.speedY *= friction;
+
+                    // Update position
+                    node.x += node.speedX;
+                    node.y += node.speedY;
+
+                    // Pulsate node
+                    node.radius = node.baseRadius + Math.sin(node.pulseOffset) * pulseSpeed;
+                    node.pulseOffset += 0.1;
+
+                    // Keep nodes within canvas bounds
+                    if (node.x < 0 || node.x > canvas.width) node.speedX *= -1;
+                    if (node.y < 0 || node.y > canvas.height) node.speedY *= -1;
+                });
+            }
+
+            function drawNodes() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                nodes.forEach(node => {
+                    ctx.beginPath();
+                    const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.radius);
+                    gradient.addColorStop(0, '#0ff');
+                    gradient.addColorStop(1, '#00f');
+                    ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                });
+            }
+
+            function connectNodes() {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#fff';
+                for (let i = 0; i < nodes.length; i++) {
+                    for (let j = i + 1; j < nodes.length; j++) {
+                        const distance = Math.hypot(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y);
+                        if (distance < maxDistance) {
+                            ctx.beginPath();
+                            ctx.moveTo(nodes[i].x, nodes[i].y);
+                            ctx.lineTo(nodes[j].x, nodes[j].y);
+                            ctx.strokeStyle = `rgba(255, 255, 255, ${1 - distance / maxDistance})`;
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
+                    }
+                }
+                ctx.shadowBlur = 0;
+            }
+
+            function animate() {
+                updateNodes();
+                drawNodes();
+                connectNodes();
+                requestAnimationFrame(animate);
+            }
+
+            createNodes();
+            animate();
+        }
+
+        createNeuralNetAnimation();
+    </script>
+</body>
+</html>
