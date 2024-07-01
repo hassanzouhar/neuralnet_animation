@@ -223,5 +223,3 @@ The JavaScript code, located in `script.js`, handles the creation, animation, an
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ```
-
-This `README.md` provides a clear explanation of the project, including its features, requirements, usage, and a detailed code explanation. Adjust the image path and repository URL as needed.
