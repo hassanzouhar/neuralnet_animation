@@ -32,8 +32,8 @@
             const nodes = [];
             const nodeCount = 100;
             const maxDistance = 150;
-            const friction = 0.95;
-            const pulseSpeed = 0.05;
+            const friction = 0.9;
+            const pulseSpeed = 0.1;
             let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
 
             function resizeCanvas() {
@@ -57,8 +57,8 @@
                         y: Math.random() * canvas.height,
                         baseRadius: Math.random() * 3 + 2,
                         radius: Math.random() * 3 + 2,
-                        speedX: (Math.random() - 0.5) * 1.5,
-                        speedY: (Math.random() - 0.5) * 1.5,
+                        speedX: (Math.random() - 0.5) * 2,
+                        speedY: (Math.random() - 0.5) * 2,
                         pulseOffset: Math.random() * 2 * Math.PI
                     });
                 }
@@ -70,14 +70,14 @@
                     const dx = node.x - mouse.x;
                     const dy = node.y - mouse.y;
                     const distance = Math.hypot(dx, dy);
-                    const maxMouseEffectDistance = 100;
+                    const maxMouseEffectDistance = 150;
 
                     // Move node away from mouse
                     if (distance < maxMouseEffectDistance) {
                         const angle = Math.atan2(dy, dx);
                         const force = (maxMouseEffectDistance - distance) / maxMouseEffectDistance;
-                        node.speedX += Math.cos(angle) * force * 0.3;
-                        node.speedY += Math.sin(angle) * force * 0.3;
+                        node.speedX += Math.cos(angle) * force * 1;
+                        node.speedY += Math.sin(angle) * force * 1;
                     }
 
                     // Apply friction
