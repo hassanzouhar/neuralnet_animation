@@ -1,4 +1,4 @@
-Sure, here's a `README.md` for your project:
+# Neural Network Animation
 
 ```markdown
 # Neural Network Animation
