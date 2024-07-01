@@ -221,5 +221,3 @@ The JavaScript code, located in `script.js`, handles the creation, animation, an
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-```
